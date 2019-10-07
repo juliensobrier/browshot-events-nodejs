@@ -1,0 +1,20 @@
+{
+  "name": "browshot-events",
+  "version": "1.1.1",
+  "description": "Event-driven library for Browshot",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --reporter spec"
+  },
+  "author": "Julien Sobrier",
+  "license": "ISC",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^6.2.0"
+  },
+  "dependencies": {
+    "browshot": "latest",
+    "events": "^3.0.0"
+  },
+  "homepage": "https://browshot.com/api/documentation"
+}
