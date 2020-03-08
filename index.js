@@ -57,17 +57,20 @@ BrowshotEvents.prototype.setDefaults = function(args) {
  *   failed: the screenshot failed
  *   timeout: the screenshot took too long to finish based on the default timeout
  * @link http://browshot.com/api/documentation#screenshot_create
- * @param  {Object}   args   List of screenshots details
+ * @param  {Object}   args   List of screenshots details +  + original_url
  */
 BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 	var eventEmitter = new events.EventEmitter();
 	
 	var start = new Date();
+	const original_url = args.url || '';
 	
 	function checkStatus(id) {
 // 	console.log(`Checking status for screenshot ${id}`);
 		
 		client.screenshotInfo(id, { details: args.details || 0 }, function(screenshot) {
+			screenshot.original_url = original_url;
+
 			if (screenshot.status == 'error')
 				eventEmitter.emit('failed', screenshot);
 			else
@@ -101,6 +104,8 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 	}
 	
 	client.screenshotCreate(args, (screenshot) => {
+		screenshot.original_url = original_url;
+
 		if (screenshot.status == 'error')
 			eventEmitter.emit('failed', screenshot);
 		else
@@ -133,7 +138,7 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
  *   complete: all screenshots are done (finished, failed or timeout)  (fired once)
  * @link http://browshot.com/api/documentation#screenshot_create
  * @param  {Array}   args   List of screenshots requests
- * @param  {Object}  common Common properties of all screenshot requests
+ * @param  {Object}  common Common properties of all screenshot requests + original_url
  */
 BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common = { }) {
 	var eventEmitter = new events.EventEmitter();
@@ -145,41 +150,39 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 	// Make list of screenshos requests
 	args.forEach((request) => {
 		request = Object.assign(Object.assign({}, common), request);
+		var original_url = request.url || '';
 		
 		if (request.details && request.details > details) {
 				details = request.details;
 		}
 		
 		client.screenshotCreate(request, (screenshot) => {
+			screenshot.original_url = original_url;
 			screenshots.push(screenshot);
 			
 			if (screenshot.status == 'error')
 				eventEmitter.emit('failed', screenshot);
 			else
 				eventEmitter.emit(screenshot.status, screenshot);
-			
-// 			for(var i in screenshots) {
-// 				if (screenshots[i].id == screenshot.id) {
-// 						screenshots[i] = Object.assign(screenshots[i], screenshot);
-// 						screenshots[i] = Object.assign(screenshots[i], { alerted: screenshot.status });
-// 				}
-// 			}
+
 			
 			if (screenshot.status == 'finished' || screenshot.status == 'error') {
 				checkCompleted();
 			}
-			else if (checkTimeout(screenshot)) {
+			else if (checkTimeout()) {
 				// nothing to do
 			}
 			else {
 				// Keep checking
-				setTimeout(checkStatus, defaults.interval * 1000, screenshot.id);
+				setTimeout(checkStatus, defaults.interval * 1000, screenshot);
 			}
 		});
 	});
 	
-	function checkStatus(id) {		
-		client.screenshotInfo(id, { details: details }, function(screenshot) {
+	function checkStatus(request) {		
+		client.screenshotInfo(request.id, { details: details }, function(screenshot) {
+			screenshot.original_url = request.original_url;
+
 			for(var i in screenshots) {
 				if (screenshots[i].id == screenshot.id) {
 						screenshots[i] = Object.assign(screenshots[i], screenshot);
@@ -194,12 +197,12 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 			if (screenshot.status == 'finished' || screenshot.status == 'error') {
 				checkCompleted();
 			}	
-			else if (checkTimeout(screenshot)) {
+			else if (checkTimeout()) {
 				// nothing to do
 			}
 			else {
 				// Keep checking
-				setTimeout(checkStatus, defaults.interval * 1000, screenshot.id);
+				setTimeout(checkStatus, defaults.interval * 1000, screenshot);
 			}
 		});
 	}
@@ -215,20 +218,6 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 		});
 		
 		if (complete) {
-// 			console.log(`Number of requests: ${screenshots.length} / ${args.length}`);
-// 			
-// 			// make sure an alert was sent for all of them
-// 			for(var i in screenshots) {
-// 				if (! screenshots[i].alerted || (screenshots[i].alerted != 'finished' && screenshots[i].alerted != 'error')) {
-// 					console.log("Missing notification for screenshot " + screenshots[i].id);
-// 					
-// 					if (screenshots[i].status == 'error')
-// 						eventEmitter.emit('failed', screenshots[i]);
-// 					else
-// 						eventEmitter.emit(screenshot.status, screenshots[i]);
-// 					}
-// 			}
-			
 			// required if all screenshots already in cache
 			if (screenshots.length == args.length) {
 				eventEmitter.emit('complete', screenshots);
@@ -240,7 +229,7 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 		return complete;
 	}
 	
-	function checkTimeout(screenshot) {
+	function checkTimeout() {
 		var now = new Date();
 			
 		var elapsed = now - start; //in ms
