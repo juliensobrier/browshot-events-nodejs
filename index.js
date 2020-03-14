@@ -20,6 +20,11 @@ function info(/**/) {
 	};
 }
 
+function error(/**/) {
+	var args = Array.prototype.slice.call(arguments);
+	
+	console.log('ERROR ' + args.join(''));
+}
 
 /**
  * This is an event-driven version of the brwoshot Node.js library. This module shoul make it easier to use the asynchronous API.
@@ -286,11 +291,8 @@ BrowshotEvents.prototype.screenshotThumbnail = function(id = 0, args = { }, reso
 					resolve(image);
 			}
 		});
-	});	
+	});
 }
-
-
-
 
 
 module.exports = BrowshotEvents;
