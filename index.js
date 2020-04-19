@@ -279,16 +279,16 @@ BrowshotEvents.prototype.saveThumbnail = function(id = 0, file = '', args = { },
  * @link http://browshot.com/api/documentation#thumbnails
  * @param  {Number}   id          Screenshot ID. Required. 
  * @param  {Object}   args        arguments. Optional.
- * @return {Object}   Return a Promise with the image as argument.
+ * @return {Object}   Return a Promise with the image and shot as arguments.
  */
 BrowshotEvents.prototype.screenshotThumbnail = function(id = 0, args = { }, resolve, reject) {
 	return new Promise(function(resolve, reject){
 		client.screenshotThumbnail(id, args, function(image) {
 			if (image == '') {
-				reject(image);
+				reject(image, args.shot || 1);
 			}
 			else {
-					resolve(image);
+					resolve(image, args.shot || 1);
 			}
 		});
 	});
