@@ -1,4 +1,6 @@
 browshot-events
+
+[![Git](https://app.soluble.cloud/api/v1/public/badges/3fcc7905-7bfa-4404-9ccf-05af18fa0943.svg?orgId=234270307752)](https://app.soluble.cloud/repos/details/github.com/juliensobrier/browshot-events-nodejs?orgId=234270307752)  
 ================================
 
 Browshot ( https://browshot.com/ ) is a web service to easily make screenshots of web pages in any screen size, as any device: iPhone, iPad, Android, PC, etc. Browshot has full Flash, JavaScript, CSS, & HTML5 support.
