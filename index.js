@@ -142,23 +142,40 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
  *   timeout: at least one screenshot took too long to finish based on the default timeout (fired once)
  *   complete: all screenshots are done (finished, failed or timeout)  (fired once)
  * @link http://browshot.com/api/documentation#screenshot_create
- * @param  {Array}   args   List of screenshots requests
- * @param  {Object}  common Common properties of all screenshot requests + original_url
+ * @param  {Array}    args   List of screenshots requests
+ * @param  {Object}   common Common properties of all screenshot requests + original_url
+ * @param  {Number}   delayScreenshot Insert a delay (in seconds) between 2 screenshot request (default: 0 second)
+ * @param  {Boolean}  successive Wait for previous screenshot to be done (finished or error) before requesting the next one (default: false)
  */
-BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common = { }) {
+BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common = { }, delayScreenshot = 0, successive = false) {
 	var eventEmitter = new events.EventEmitter();
 	var start = new Date();
 	var screenshots = [];
 	
 	var details = common.details || 0;
 	
-	// Make list of screenshos requests
-	args.forEach((request) => {
+	// Make list of screenshot requests
+	args.forEach(async (request, index) => {
 		request = Object.assign(Object.assign({}, common), request);
 		var original_url = request.url || '';
 		
 		if (request.details && request.details > details) {
 				details = request.details;
+		}
+
+		if (delayScreenshot > 0 & index > 0) {
+			await sleep(delayScreenshot * 1000);
+			start = new Date(); // reset the timer
+		}
+
+		if (index > 0 && successive) {
+			var complete = checkCompleted(false); // completed so far?
+			while(!complete || index != screenshots.length) {
+				await sleep(1 * 1000); // Can do check more often, no API call done
+				complete = checkCompleted(false);
+			}
+
+			start = new Date(); // reset the timer
 		}
 		
 		client.screenshotCreate(request, (screenshot) => {
@@ -212,13 +229,14 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 		});
 	}
 	
-	function checkCompleted() {
+	function checkCompleted(debug = true) {
 		var complete = true;
 		
 		screenshots.forEach((screenshot) => {
 			if (screenshot.status != "finished" &&  screenshot.status != "error") {
 					complete = false;
-					info(`Screenshot ${screenshot.id} is not finished: ${screenshot.status} `); 
+					if (debug)
+						info(`Screenshot ${screenshot.id} is not finished: ${screenshot.status} `); 
 			}
 		});
 		
@@ -248,7 +266,11 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 		return false;
 	}
 	
-	
+	function sleep(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
 	
 	return eventEmitter;
 }
