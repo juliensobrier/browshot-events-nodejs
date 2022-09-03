@@ -27,7 +27,7 @@ function error(/**/) {
 }
 
 /**
- * This is an event-driven version of the brwoshot Node.js library. This module shoul make it easier to use the asynchronous API.
+ * This is an event-driven version of the browshot Node.js library. This module should make it easier to use the asynchronous API.
  * This module gives access to the underlying browshot modules through this.browshot.
  * 
  * The source code is available on github at https://github.com/juliensobrier/browshot-nodejs-events.
