@@ -4,23 +4,21 @@ const browshot = require('browshot');
 const events = require('events');
 
 
-var defaults = {
+const defaults = {
 	timeout: 60 * 5,
 	interval: 1,
 };
 
-var client;
 
-
-function info(/**/) {
+BrowshotEvents.prototype.info = function(/**/) {
 	var args = Array.prototype.slice.call(arguments);
 
-	if (client.debug) {
+	if (this.debug) {
 		console.log(args.join(''));
 	};
 }
 
-function error(/**/) {
+BrowshotEvents.prototype.error = function(/**/) {
 	var args = Array.prototype.slice.call(arguments);
 	
 	console.log('ERROR ' + args.join(''));
@@ -32,15 +30,14 @@ function error(/**/) {
  * 
  * The source code is available on github at https://github.com/juliensobrier/browshot-nodejs-events.
  * 
- * Constructor for the Nodejs BrowshotEvents client. You can find code samples at http://browshot.com/api/documentation
+ * Constructor for the Nodejs BrowshotEvents this. You can find code samples at http://browshot.com/api/documentation
  * @link http://browshot.com/api/documentation
  * @param  {String}   key   Your API key. Required.
  * @param  {Boolean}  debug Turn on debugging messages. optional
  */
 function BrowshotEvents(key, debug = false) {
+	this.defaults = defaults;
 	this.browshot = new browshot(key, debug);
-	
-	client = this.browshot;
 }
 
 /**
@@ -50,7 +47,7 @@ function BrowshotEvents(key, debug = false) {
  * @param  {Object}   args   List of new setting values
  */
 BrowshotEvents.prototype.setDefaults = function(args) {
-	defaults = Object.assign(defaults, args);
+	this.defaults = Object.assign(defaults, args);
 }
 
 
@@ -70,10 +67,10 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 	var start = new Date();
 	const original_url = args.url || '';
 	
-	function checkStatus(id) {
+	function checkStatus(id, that) {
 // 	console.log(`Checking status for screenshot ${id}`);
 		
-		client.screenshotInfo(id, { details: args.details || 0 }, function(screenshot) {
+	that.client.screenshotInfo(id, { details: args.details || 0 }, function(screenshot) {
 			screenshot.original_url = original_url;
 
 			if (screenshot.status == 'error')
@@ -84,21 +81,21 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 			if (screenshot.status == 'finished' || screenshot.status == 'error') {
 				eventEmitter.removeAllListeners();
 			}	
-			else if (checkTimeout(screenshot)) {
+			else if (checkTimeout(screenshot, that)) {
 				// nothing to do
 			}
 			else {
 				// Keep checking
-				setTimeout(checkStatus, defaults.interval * 1000, screenshot.id);
+				setTimeout(checkStatus, this.defaults.interval * 1000, screenshot.id, that);
 			}
 		});
 	}
 	
-	function checkTimeout(screenshot) {
+	function checkTimeout(screenshot, that) {
 		var now = new Date();
 			
 		var elapsed = now - start; //in ms
-		if (elapsed >= defaults.timeout * 1000) {
+		if (elapsed >= that.defaults.timeout * 1000) {
 			eventEmitter.emit('timeout', screenshot);
 			eventEmitter.removeAllListeners();
 			
@@ -108,7 +105,7 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 		return false;
 	}
 	
-	client.screenshotCreate(args, (screenshot) => {
+	this.browshot.screenshotCreate(args, (screenshot) => {
 		screenshot.original_url = original_url;
 
 		if (screenshot.status == 'error')
@@ -124,7 +121,7 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 		}
 		else {
 			// Keep checking
-			setTimeout(checkStatus, defaults.interval * 1000, screenshot.id);
+			setTimeout(checkStatus, this.defaults.interval * 1000, screenshot.id, this);
 		}
 	});
 	
@@ -169,16 +166,16 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 		}
 
 		if (index > 0 && successive) {
-			var complete = checkCompleted(false); // completed so far?
+			var complete = checkCompleted(false, this); // completed so far?
 			while(!complete || index != screenshots.length) {
 				await sleep(1 * 1000); // Can do check more often, no API call done
-				complete = checkCompleted(false);
+				complete = checkCompleted(false, this);
 			}
 
 			start = new Date(); // reset the timer
 		}
 		
-		client.screenshotCreate(request, (screenshot) => {
+		this.browshot.screenshotCreate(request, (screenshot) => {
 			screenshot.original_url = original_url;
 			screenshots.push(screenshot);
 			
@@ -189,20 +186,20 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 
 			
 			if (screenshot.status == 'finished' || screenshot.status == 'error') {
-				checkCompleted();
+				checkCompleted(true, this);
 			}
-			else if (checkTimeout()) {
+			else if (checkTimeout(this)) {
 				// nothing to do
 			}
 			else {
 				// Keep checking
-				setTimeout(checkStatus, defaults.interval * 1000, screenshot);
+				setTimeout(checkStatus, this.defaults.interval * 1000, screenshot, this);
 			}
 		});
 	});
 	
-	function checkStatus(request) {		
-		client.screenshotInfo(request.id, { details: details }, function(screenshot) {
+	function checkStatus(request, that) {		
+		that.browshot.screenshotInfo(request.id, { details: details }, function(screenshot) {
 			screenshot.original_url = request.original_url;
 
 			for(var i in screenshots) {
@@ -217,26 +214,26 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 				eventEmitter.emit(screenshot.status, screenshot);
 			
 			if (screenshot.status == 'finished' || screenshot.status == 'error') {
-				checkCompleted();
+				checkCompleted(true, that);
 			}	
-			else if (checkTimeout()) {
+			else if (checkTimeout(that)) {
 				// nothing to do
 			}
 			else {
 				// Keep checking
-				setTimeout(checkStatus, defaults.interval * 1000, screenshot);
+				setTimeout(checkStatus, this.defaults.interval * 1000, screenshot, that);
 			}
 		});
 	}
 	
-	function checkCompleted(debug = true) {
+	function checkCompleted(debug = true, that) {
 		var complete = true;
 		
 		screenshots.forEach((screenshot) => {
 			if (screenshot.status != "finished" &&  screenshot.status != "error") {
 					complete = false;
 					if (debug)
-						info(`Screenshot ${screenshot.id} is not finished: ${screenshot.status} `); 
+						that.info(`Screenshot ${screenshot.id} is not finished: ${screenshot.status} `); 
 			}
 		});
 		
@@ -244,7 +241,7 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 			// required if all screenshots already in cache
 			if (screenshots.length == args.length) {
 				eventEmitter.emit('complete', screenshots);
-				info("All screenshots are complete");
+				that.info("All screenshots are complete");
 				eventEmitter.removeAllListeners();
 			}
 		}
@@ -252,11 +249,11 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 		return complete;
 	}
 	
-	function checkTimeout() {
+	function checkTimeout(that) {
 		var now = new Date();
 			
 		var elapsed = now - start; //in ms
-		if (elapsed >= defaults.timeout * 1000) {
+		if (elapsed >= that.defaults.timeout * 1000) {
 			eventEmitter.emit('timeout', screenshots);
 			eventEmitter.removeAllListeners();
 			
@@ -284,7 +281,8 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
  * @return {Object}   Return a Promise with the file name as argument.
  */
 BrowshotEvents.prototype.saveThumbnail = function(id = 0, file = '', args = { }, resolve, reject) {
-	return new Promise(function(resolve, reject){
+	var client = this.browshot;
+	return new Promise(function(resolve, reject) {
 		client.screenshotThumbnailFile(id, file, args, function(newFile) {
 			if (newFile == '') {
 				reject(file);
@@ -304,7 +302,8 @@ BrowshotEvents.prototype.saveThumbnail = function(id = 0, file = '', args = { },
  * @return {Object}   Return a Promise with the image.
  */
 BrowshotEvents.prototype.screenshotThumbnail = function(id = 0, args = { }, resolve, reject) {
-	return new Promise(function(resolve, reject){
+	var client = this.browshot;
+	return new Promise(function(resolve, reject) {
 		client.screenshotThumbnail(id, args, function(image) {
 			if (image == '') {
 				reject(image);
@@ -324,6 +323,7 @@ BrowshotEvents.prototype.screenshotThumbnail = function(id = 0, args = { }, reso
  * @return {Object}   Return a Promise with the image and shot as arguments.
  */
 BrowshotEvents.prototype.shotThumbnail = function(id = 0, args = { }, resolve, reject) {
+	var client = this.browshot;
 	return new Promise(function(resolve, reject){
 		client.screenshotThumbnail(id, args, function(image) {
 			if (image == '') {
