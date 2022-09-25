@@ -86,7 +86,7 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 			}
 			else {
 				// Keep checking
-				setTimeout(checkStatus, this.defaults.interval * 1000, screenshot.id, that);
+				setTimeout(checkStatus, that.defaults.interval * 1000, screenshot.id, that);
 			}
 		});
 	}
@@ -221,7 +221,7 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 			}
 			else {
 				// Keep checking
-				setTimeout(checkStatus, this.defaults.interval * 1000, screenshot, that);
+				setTimeout(checkStatus, that.defaults.interval * 1000, screenshot, that);
 			}
 		});
 	}
