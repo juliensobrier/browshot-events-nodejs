@@ -70,7 +70,7 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 	function checkStatus(id, that) {
 // 	console.log(`Checking status for screenshot ${id}`);
 		
-	that.client.screenshotInfo(id, { details: args.details || 0 }, function(screenshot) {
+	that.browshot.screenshotInfo(id, { details: args.details || 0 }, function(screenshot) {
 			screenshot.original_url = original_url;
 
 			if (screenshot.status == 'error')
@@ -116,7 +116,7 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 		if (screenshot.status == 'finished' || screenshot.status == 'error') {
 			eventEmitter.removeAllListeners();
 		}
-		else if (checkTimeout(screenshot)) {
+		else if (checkTimeout(screenshot, this)) {
 			// nothing to do
 		}
 		else {
@@ -336,5 +336,87 @@ BrowshotEvents.prototype.shotThumbnail = function(id = 0, args = { }, resolve, r
 	});
 }
 
+
+/**
+ * Retrieve the PDF generated with pdf=1.
+ * @param  {Number}   id          Screenshot ID. Required.
+ * @param  {Object}   args        arguments. Optional.
+ * @return {Object}   Promise with a Buffer; rejects with an empty string on failure.
+ */
+BrowshotEvents.prototype.screenshotPdf = function(id = 0, args = { }) {
+	var client = this.browshot;
+	return new Promise(function(resolve, reject) {
+		client.screenshotPdf(id, args, function(data) {
+			if (data == '') {
+				reject(data);
+			}
+			else {
+				resolve(data);
+			}
+		});
+	});
+}
+
+/**
+ * Retrieve the PDF and save it to a file.
+ * @param  {Number}   id          Screenshot ID. Required.
+ * @param  {String}   file        Local file name. Required.
+ * @param  {Object}   args        arguments. Optional.
+ * @return {Object}   Promise with the file name; rejects with the requested file on failure.
+ */
+BrowshotEvents.prototype.savePdf = function(id = 0, file = '', args = { }) {
+	var client = this.browshot;
+	return new Promise(function(resolve, reject) {
+		client.screenshotPdfFile(id, file, args, function(newFile) {
+			if (newFile == '') {
+				reject(file);
+			}
+			else {
+				resolve(newFile);
+			}
+		});
+	});
+}
+
+/**
+ * Retrieve the video (WebM, MP4 or GIF) generated with video=1.
+ * @param  {Number}   id          Screenshot ID. Required.
+ * @param  {Object}   args        arguments. Optional.
+ * @return {Object}   Promise with a Buffer; rejects with an empty string on failure.
+ */
+BrowshotEvents.prototype.screenshotVideo = function(id = 0, args = { }) {
+	var client = this.browshot;
+	return new Promise(function(resolve, reject) {
+		client.screenshotVideo(id, args, function(data) {
+			if (data == '') {
+				reject(data);
+			}
+			else {
+				resolve(data);
+			}
+		});
+	});
+}
+
+/**
+ * Retrieve the video (WebM, MP4 or GIF) and save it to a file.
+ * @param  {Number}   id          Screenshot ID. Required.
+ * @param  {String}   file        Local file name. Required.
+ * @param  {Object}   args        arguments. Optional.
+ * @return {Object}   Promise with the file name; rejects with the requested file on failure.
+ */
+BrowshotEvents.prototype.saveVideo = function(id = 0, file = '', args = { }) {
+	var client = this.browshot;
+	return new Promise(function(resolve, reject) {
+		client.screenshotVideoFile(id, file, args, function(newFile) {
+			if (newFile == '') {
+				reject(file);
+			}
+			else {
+				resolve(newFile);
+			}
+		});
+	});
+}
 
 module.exports = BrowshotEvents;
