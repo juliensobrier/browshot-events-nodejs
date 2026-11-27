@@ -10,6 +10,21 @@ const defaults = {
 };
 
 
+function pollOptions(client, options) {
+	const poll = {};
+	if (options.details != null) poll.details = options.details;
+	if (options.api_version != null) poll.api_version = options.api_version;
+	if (client._versionFor('screenshot/create', options) === '1' && poll.details == null) {
+		poll.details = 0;
+	}
+	return poll;
+}
+
+function captureStatus(screenshot) {
+	if (!screenshot.status) screenshot.status = 'error';
+	return screenshot.status === 'error' ? 'failed' : screenshot.status;
+}
+
 BrowshotEvents.prototype.info = function(/**/) {
 	var args = Array.prototype.slice.call(arguments);
 
@@ -66,17 +81,15 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 	
 	var start = new Date();
 	const original_url = args.url || '';
+	const options = pollOptions(this.browshot, args);
 	
 	function checkStatus(id, that) {
 // 	console.log(`Checking status for screenshot ${id}`);
 		
-	that.browshot.screenshotInfo(id, { details: args.details || 0 }, function(screenshot) {
+	that.browshot.screenshotInfo(id, options, function(screenshot) {
 			screenshot.original_url = original_url;
 
-			if (screenshot.status == 'error')
-				eventEmitter.emit('failed', screenshot);
-			else
-				eventEmitter.emit(screenshot.status, screenshot);
+			eventEmitter.emit(captureStatus(screenshot), screenshot);
 			
 			if (screenshot.status == 'finished' || screenshot.status == 'error') {
 				eventEmitter.removeAllListeners();
@@ -108,10 +121,7 @@ BrowshotEvents.prototype.screenshotCreate =  function(args = { }) {
 	this.browshot.screenshotCreate(args, (screenshot) => {
 		screenshot.original_url = original_url;
 
-		if (screenshot.status == 'error')
-			eventEmitter.emit('failed', screenshot);
-		else
-			eventEmitter.emit(screenshot.status, screenshot);
+		eventEmitter.emit(captureStatus(screenshot), screenshot);
 		
 		if (screenshot.status == 'finished' || screenshot.status == 'error') {
 			eventEmitter.removeAllListeners();
@@ -149,16 +159,13 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 	var start = new Date();
 	var screenshots = [];
 	
-	var details = common.details || 0;
 	
 	// Make list of screenshot requests
 	args.forEach(async (request, index) => {
 		request = Object.assign(Object.assign({}, common), request);
 		var original_url = request.url || '';
 		
-		if (request.details && request.details > details) {
-				details = request.details;
-		}
+		const options = pollOptions(this.browshot, request);
 
 		if (delayScreenshot > 0 & index > 0) {
 			await sleep(delayScreenshot * 1000);
@@ -177,12 +184,9 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 		
 		this.browshot.screenshotCreate(request, (screenshot) => {
 			screenshot.original_url = original_url;
-			screenshots.push(screenshot);
+			const position = screenshots.push(screenshot) - 1;
 			
-			if (screenshot.status == 'error')
-				eventEmitter.emit('failed', screenshot);
-			else
-				eventEmitter.emit(screenshot.status, screenshot);
+			eventEmitter.emit(captureStatus(screenshot), screenshot);
 
 			
 			if (screenshot.status == 'finished' || screenshot.status == 'error') {
@@ -193,39 +197,26 @@ BrowshotEvents.prototype.screenshotCreateMultiple =  function(args = [], common 
 			}
 			else {
 				// Keep checking
-				setTimeout(checkStatus, this.defaults.interval * 1000, screenshot, this);
+				setTimeout(checkStatus, this.defaults.interval * 1000, position, options, this);
 			}
 		});
 	});
 	
-	function checkStatus(request, that) {		
-		that.browshot.screenshotInfo(request.id, { details: details }, function(screenshot) {
+	function checkStatus(position, options, that) {
+		const request = screenshots[position];
+		that.browshot.screenshotInfo(request.id, options, function(screenshot) {
 			screenshot.original_url = request.original_url;
+			eventEmitter.emit(captureStatus(screenshot), screenshot);
+			Object.assign(request, screenshot);
 
-			for(var i in screenshots) {
-				if (screenshots[i].id == screenshot.id) {
-						screenshots[i] = Object.assign(screenshots[i], screenshot);
-				}
-			}
-			
-			if (screenshot.status == 'error')
-				eventEmitter.emit('failed', screenshot);
-			else
-				eventEmitter.emit(screenshot.status, screenshot);
-			
 			if (screenshot.status == 'finished' || screenshot.status == 'error') {
 				checkCompleted(true, that);
-			}	
-			else if (checkTimeout(that)) {
-				// nothing to do
-			}
-			else {
-				// Keep checking
-				setTimeout(checkStatus, that.defaults.interval * 1000, screenshot, that);
+			} else if (!checkTimeout(that)) {
+				setTimeout(checkStatus, that.defaults.interval * 1000, position, options, that);
 			}
 		});
 	}
-	
+
 	function checkCompleted(debug = true, that) {
 		var complete = true;
 		
